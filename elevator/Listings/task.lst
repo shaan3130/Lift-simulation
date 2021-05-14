@@ -1,0 +1,243 @@
+C51 COMPILER V9.60.0.0   TASK                                                              04/06/2021 21:20:14 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE TASK
+OBJECT MODULE PLACED IN .\Objects\task.obj
+COMPILER INVOKED BY: D:\microcontroller\C51\BIN\C51.EXE task.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listi
+                    -ngs\task.lst) TABS(2) OBJECT(.\Objects\task.obj)
+
+line level    source
+
+   1          //Header files
+   2          #include <at89c5131.h>
+   3          #include <stdio.h>  //for sprintf functions
+   4          #include <stdlib.h>
+   5          
+   6          //Bit definitions
+   7          sbit RS=P0^0;
+   8          sbit RW=0x81; //Also can use P0^1 or 0x80^1
+   9          sbit EN=P0^2;
+  10          
+  11          //Global variables
+  12          
+  13          //LCD functions
+  14          void lcd_init(void);
+  15          void lcd_cmd(unsigned int i);
+  16          void lcd_char(unsigned char ch);
+  17          void lcd_write_string(unsigned char *s);
+  18          void port_init(void);
+  19          
+  20          
+  21          //Delay function for time*1ms
+  22          void msdelay(unsigned int time)
+  23          {
+  24   1        int i,j;
+  25   1        for(i=0;i<time;i++)
+  26   1        {
+  27   2          for(j=0;j<318;j++);
+  28   2        }
+  29   1      }
+  30          //LCD utility functions
+  31          void lcd_cmd(unsigned int i)
+  32          {
+  33   1        RS=0;
+  34   1        RW=0;
+  35   1        EN=1;
+  36   1        P2=i;
+  37   1        msdelay(10);
+  38   1        EN=0;
+  39   1      }
+  40          void lcd_char(unsigned char ch)
+  41          {
+  42   1        RS=1;
+  43   1        RW=0;
+  44   1        EN=1;
+  45   1        P2=ch;
+  46   1        msdelay(10);
+  47   1        EN=0;
+  48   1      }
+  49          void lcd_write_string(unsigned char *s)
+  50          {
+  51   1        while(*s!='\0')   //Can use while(*s)
+  52   1        {
+  53   2          lcd_char(*s++);
+  54   2        }
+C51 COMPILER V9.60.0.0   TASK                                                              04/06/2021 21:20:14 PAGE 2   
+
+  55   1      }
+  56          void lcd_init(void) using 3
+  57          {
+  58   1        lcd_cmd(0x38);
+  59   1        msdelay(4);
+  60   1        lcd_cmd(0x06);
+  61   1        msdelay(4);
+  62   1        lcd_cmd(0x0C);
+  63   1        msdelay(4);
+  64   1        lcd_cmd(0x01);
+  65   1        msdelay(4);
+  66   1      }
+  67          
+  68          //Port initialization
+  69          void port_init(void)
+  70          {
+  71   1        P2=0x00;
+  72   1        EN=0;
+  73   1        RS=0;
+  74   1        RW=0;
+  75   1      }
+  76          
+  77          short sgn(short v){
+  78   1        if(v < 0) return -1;
+  79   1        if(v > 0) return 1;
+  80   1        return 0;
+  81   1      }
+  82          
+  83          //Main function
+  84          int main(void)
+  85          {
+  86   1        unsigned char floor_num1[16];
+  87   1        unsigned char floor_num2[16];
+  88   1        short curr_floor1 = 0;   //current floor for lift 1
+  89   1        short curr_floor2 = 0;   //current floor for lift 2
+  90   1        short init_pos = 0;      //initial position of switch after each loop
+  91   1        short inp = 0;             // input from switch
+  92   1        unsigned char prev_p0;
+  93   1        port_init();
+  94   1        lcd_init();
+  95   1        P1 =0x00;
+  96   1        sprintf(floor_num1,"Floor 1 = 0%d",0);
+  97   1        lcd_cmd(0x80);
+  98   1        lcd_write_string(floor_num1);
+  99   1        sprintf(floor_num2,"Floor 2 = 0%d",0);
+ 100   1        lcd_cmd(0xC0);
+ 101   1        lcd_write_string(floor_num2);
+ 102   1        msdelay(500); 
+ 103   1        P1 |= 0x0F;                             //port reading enabled
+ 104   1        prev_p0 = P1&0x01;
+ 105   1        while(1)
+ 106   1        {
+ 107   2          while(P1_0==prev_p0){P1_5=1;}     //toggle P1_0 to tell the lift that a user is going to give its locati
+             -on
+ 108   2          prev_p0 = (~prev_p0)&0x01;
+ 109   2          while(P1_0==prev_p0){P1_5=0;}
+ 110   2          P1_7 = 1;                             //ready to take input
+ 111   2          msdelay(10000);                         //give 10 sec time to user to give whole input
+ 112   2          inp = P1&0x0F;                        //current postion of switches   
+ 113   2          P1_7 = 0;                               //now lift action processing
+ 114   2          
+ 115   2          //if lift 1 is closer
+C51 COMPILER V9.60.0.0   TASK                                                              04/06/2021 21:20:14 PAGE 3   
+
+ 116   2          if(abs(curr_floor1 - inp) <= abs(curr_floor2 - inp)){
+ 117   3            short iter;
+ 118   3            short diff = abs(curr_floor1 - inp);
+ 119   3            for(iter=1;iter<=diff;iter++){
+ 120   4              msdelay(1000);
+ 121   4              curr_floor1 = curr_floor1 + sgn(inp - curr_floor1);   //increase or decrease the current floor with 1s
+             -ec delay
+ 122   4              if (curr_floor1 < 10){
+ 123   5                sprintf(floor_num1," 0%d",curr_floor1);
+ 124   5                lcd_cmd(0x89);
+ 125   5                lcd_write_string(floor_num1);
+ 126   5              }
+ 127   4              else{
+ 128   5                sprintf(floor_num1," %d",curr_floor1);
+ 129   5                lcd_cmd(0x89);
+ 130   5                lcd_write_string(floor_num1);
+ 131   5              }
+ 132   4            }
+ 133   3            init_pos = P1&0x0F;                 //initial postion of the switch
+ 134   3            inp = init_pos; 
+ 135   3            P1_4 = 1;
+ 136   3            while(inp==init_pos){
+ 137   4              inp = P1&0x0F;            //current postion of switches
+ 138   4              msdelay(5000);                          //give time to user to give whole input
+ 139   4              P1_4 = 0;
+ 140   4              msdelay(1000);
+ 141   4              P1_4 = 1; 
+ 142   4            }
+ 143   3            P1_4 = 0;                       //now lift action processing
+ 144   3            diff = abs(curr_floor1 - inp);
+ 145   3            for(iter=1; iter<=diff; iter++){
+ 146   4              msdelay(1000);
+ 147   4              curr_floor1 = curr_floor1 + sgn(inp - curr_floor1);   //increase or decrease the current floor with 1s
+             -ec delay
+ 148   4              if (curr_floor1 < 10){
+ 149   5                sprintf(floor_num1," 0%d",curr_floor1);
+ 150   5                lcd_cmd(0x89);
+ 151   5                lcd_write_string(floor_num1);
+ 152   5              }
+ 153   4              else{
+ 154   5                sprintf(floor_num1," %d",curr_floor1);
+ 155   5                lcd_cmd(0x89);
+ 156   5                lcd_write_string(floor_num1);
+ 157   5              }
+ 158   4            }
+ 159   3          }
+ 160   2          
+ 161   2          //if lift 2 is closer
+ 162   2          else{
+ 163   3            short iter;
+ 164   3            short diff = abs(curr_floor2 - inp);
+ 165   3            for(iter=1; iter<=diff; iter++){
+ 166   4              msdelay(1000);
+ 167   4              curr_floor2 = curr_floor2 + sgn(inp - curr_floor2);   //increase or decrease the current floor with 1s
+             -ec delay
+ 168   4              if (curr_floor2 < 10){
+ 169   5                sprintf(floor_num2," 0%d",curr_floor2);
+ 170   5                lcd_cmd(0xC9);
+ 171   5                lcd_write_string(floor_num2);
+ 172   5              }
+ 173   4              else{
+ 174   5                sprintf(floor_num2," %d",curr_floor2);
+C51 COMPILER V9.60.0.0   TASK                                                              04/06/2021 21:20:14 PAGE 4   
+
+ 175   5                lcd_cmd(0xC9);
+ 176   5                lcd_write_string(floor_num2);
+ 177   5              }
+ 178   4            }
+ 179   3            init_pos = P1&0x0F;                 //initial postion of the switch
+ 180   3            inp = init_pos;
+ 181   3            P1_4 = 1;
+ 182   3            while(inp==init_pos){
+ 183   4              inp = P1&0x0F;                  //current postion of switches
+ 184   4              msdelay(5000);                          //give time to user to give whole input
+ 185   4              P1_4 = 0;
+ 186   4              msdelay(1000);
+ 187   4              P1_4 = 1; 
+ 188   4            }
+ 189   3            P1_4 = 0;                           //now lift action processing
+ 190   3            diff = abs(curr_floor2 - inp);
+ 191   3            for(iter=1; iter<=diff; iter++){
+ 192   4              msdelay(1000);
+ 193   4              curr_floor2 = curr_floor2 + sgn(inp - curr_floor2);   //increase or decrease the current floor with 1s
+             -ec delay
+ 194   4              if (curr_floor2 < 10){
+ 195   5                sprintf(floor_num2," 0%d",curr_floor2);
+ 196   5                lcd_cmd(0xC9);
+ 197   5                lcd_write_string(floor_num2);
+ 198   5              }
+ 199   4              else{
+ 200   5                sprintf(floor_num2," %d",curr_floor2);
+ 201   5                lcd_cmd(0xC9);
+ 202   5                lcd_write_string(floor_num2);
+ 203   5              }
+ 204   4            }
+ 205   3          }
+ 206   2          prev_p0 = P1_0;           //store the current position of switch so as toggle for next iteration
+ 207   2        }
+ 208   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1057    ----
+   CONSTANT SIZE    =     37    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      48
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
